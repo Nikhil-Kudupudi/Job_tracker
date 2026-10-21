@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Tracker</title>
+<link rel="stylesheet" href="styles.css">
+<script>
+  /* Resolve the theme before first paint so the page never flashes. */
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem('jt.theme'); } catch (e) {}
+    var resolved = (saved === 'light' || saved === 'dark') ? saved
+      : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', resolved);
+  })();
+</script>
+</head>
+<body data-palette="#1c1c1e,#6b6a73,#b58a1f,#b04a3f,#0e7a72">
+
+<header class="topbar">
+  <button id="hamburger" class="hamburger" aria-label="Open menu" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+  <h1 class="brand">Job&nbsp;Tracker</h1>
+  <div class="topbar-right">
+    <span id="syncPill" class="pill pill-muted">Local only</span>
+    <button id="themeBtn" class="btn btn-ghost btn-square" title="Switch theme" aria-label="Switch theme">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+           stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"></path>
+      </svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5z"></path>
+      </svg>
+    </button>
+    <button id="refreshBtn" class="btn btn-ghost" title="Reload from Google Sheets">Refresh</button>
+  </div>
+</header>
+
+<div id="scrim" class="scrim" hidden></div>
+
+<nav id="sidebar" class="sidebar" aria-label="Main navigation">
+  <div class="sidebar-head">
+    <span class="sidebar-title">Menu</span>
+    <button id="closeSidebar" class="btn btn-ghost" aria-label="Close menu">&times;</button>
+  </div>
+  <ul class="nav">
+    <li><button class="nav-item is-active" data-view="add">＋&nbsp; Add Job</button></li>
+    <li><button class="nav-item" data-view="tracker">▤&nbsp; Job Tracker</button></li>
+    <li><button class="nav-item" data-view="dashboard">◱&nbsp; Dashboard</button></li>
+    <li><button class="nav-item" data-view="settings">⚙&nbsp; Settings</button></li>
+  </ul>
+  <p class="sidebar-foot">Applications older than <strong id="staleDays">30 days</strong> with no status change roll over to <em>No Reply</em> automatically.</p>
+</nav>
+
+<main class="main">
+
+  <!-- ══════════════ ADD JOB ══════════════ -->
+  <section id="view-add" class="view">
+    <div class="view-head">
+      <h2>Add Job</h2>
+      <p class="sub">Applied date &amp; time are stamped automatically on submit.</p>
+    </div>
+
+    <details id="jdPanel" class="card jd">
+      <summary>
+        <span class="jd-title">Paste a job description</span>
+        <span class="jd-note" id="jdNote">fills the fields below automatically</span>
+      </summary>
+      <div class="jd-body">
+        <textarea id="jdText" rows="7" placeholder="Paste the full posting here — title, company, location, requirements…"></textarea>
+        <div class="form-actions">
+          <button type="button" id="jdParse" class="btn btn-primary">Parse &amp; fill</button>
+          <button type="button" id="jdUndo" class="btn btn-ghost" hidden>Undo fill</button>
+          <button type="button" id="jdClear" class="btn btn-ghost">Clear</button>
+          <span id="jdMsg" class="form-msg" role="status"></span>
+        </div>
+        <div id="jdReport" class="jd-report" hidden></div>
+      </div>
+    </details>
+
+    <form id="jobForm" class="card form" autocomplete="off">
+      <input type="hidden" id="f_id">
+
+      <div class="grid">
+        <div class="field">
+          <label for="f_company">Company name <span class="req">*</span></label>
+          <div class="combo" data-list="companies">
+            <input id="f_company" required placeholder="e.g. Stripe">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="f_title">Job title <span class="req">*</span></label>
+          <div class="combo" data-list="titles">
+            <input id="f_title" required placeholder="Start typing or pick from your list">
+          </div>
+          <span class="hint">New titles are saved to your list for next time.</span>
+        </div>
+
+        <div class="field">
+          <label for="f_location">Location <span class="req">*</span></label>
+          <div class="combo" data-list="locations">
+            <input id="f_location" required placeholder="City, State — or Remote">
+          </div>
+          <span class="hint">New cities are saved to your list for next time.</span>
+        </div>
+
+        <div class="field">
+          <label for="f_jobType">Job type <span class="req">*</span></label>
+          <select id="f_jobType" required>
+            <option value="">Select…</option>
+            <option>Remote</option>
+            <option>Hybrid</option>
+            <option>On site</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="f_experience">Experience</label>
+          <input id="f_experience" placeholder="e.g. 3+ years / Entry level">
+        </div>
+
+        <div class="field">
+          <label for="f_status">Status <span class="req">*</span></label>
+          <select id="f_status" required>
+            <option value="Applied" selected>Applied</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Accepted">Accepted</option>
+            <option value="No Reply">No Reply</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="f_platform">Platform <span class="opt">optional</span></label>
+          <select id="f_platform">
+            <option value="">—</option>
+            <option>LinkedIn</option>
+            <option>Company site</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="f_resume">Resume used <span class="opt">optional</span></label>
+          <div class="combo" data-list="resumes">
+            <input id="f_resume" placeholder="resume_name.pdf">
+          </div>
+        </div>
+
+        <div class="field field-wide">
+          <label for="f_skills">Skills required <span class="opt">optional</span></label>
+          <div class="chips" id="skillChips">
+            <input id="f_skills" placeholder="Type a skill and press Enter">
+          </div>
+          <span class="hint">Enter or comma adds a skill · Backspace on an empty box removes the last one.</span>
+        </div>
+
+        <div class="field field-wide">
+          <label for="f_url">Job application URL <span class="opt">optional</span></label>
+          <input id="f_url" type="url" placeholder="https://…">
+        </div>
+
+        <div class="field field-wide">
+          <label for="f_notes">Notes <span class="opt">optional</span></label>
+          <textarea id="f_notes" rows="2" placeholder="Referral, recruiter name, next step…"></textarea>
+        </div>
+
+        <div class="field field-wide" id="appliedDateWrap" hidden>
+          <label for="f_appliedDate">Applied date</label>
+          <input id="f_appliedDate" type="datetime-local">
+          <span class="hint">Only editable when updating an existing row.</span>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="submitBtn">Add job</button>
+        <button type="reset" class="btn btn-ghost" id="resetBtn">Clear</button>
+        <span id="formMsg" class="form-msg" role="status"></span>
+      </div>
+    </form>
+  </section>
+
+  <!-- ══════════════ TRACKER ══════════════ -->
+  <section id="view-tracker" class="view" hidden>
+    <div class="view-head">
+      <h2>Job Tracker</h2>
+      <p class="sub" id="trackerSub">—</p>
+    </div>
+
+    <div class="toolbar">
+      <input id="search" class="search" type="search" placeholder="Search company, title, location…">
+      <select id="filterStatus" class="filter">
+        <option value="">All statuses</option>
+        <option>Applied</option><option>In Progress</option>
+        <option>Rejected</option><option>Accepted</option><option>No Reply</option>
+      </select>
+      <select id="filterType" class="filter">
+        <option value="">All job types</option>
+        <option>Remote</option><option>Hybrid</option><option>On site</option>
+      </select>
+      <button id="exportCsv" class="btn btn-ghost">Export CSV</button>
+    </div>
+
+    <div class="card table-wrap">
+      <table class="table" id="jobsTable">
+        <thead>
+          <tr>
+            <th data-sort="company">Company</th>
+            <th data-sort="title">Job title</th>
+            <th data-sort="location">Location</th>
+            <th data-sort="jobType">Type</th>
+            <th data-sort="experience">Exp.</th>
+            <th data-sort="skills">Skills</th>
+            <th data-sort="platform">Platform</th>
+            <th data-sort="status">Status</th>
+            <th data-sort="appliedDate">Applied</th>
+            <th data-sort="statusUpdatedAt">Days idle</th>
+            <th>Resume</th>
+            <th>Link</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="jobsBody"></tbody>
+      </table>
+      <p id="emptyState" class="empty" hidden>No applications yet. Add one from the sidebar.</p>
+    </div>
+  </section>
+
+  <!-- ══════════════ DASHBOARD ══════════════ -->
+  <section id="view-dashboard" class="view" hidden>
+    <div class="view-head">
+      <h2>Dashboard</h2>
+      <p class="sub" id="dashSub">—</p>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="charts">
+      <figure class="card chart-card">
+        <figcaption>
+          <span class="chart-title">Applications by status</span>
+          <span class="chart-note">share of total pipeline</span>
+        </figcaption>
+        <div id="chartStatus" class="chart"></div>
+      </figure>
+
+      <figure class="card chart-card">
+        <figcaption>
+          <span class="chart-title">Applications per month</span>
+          <span class="chart-note">by applied date</span>
+        </figcaption>
+        <div id="chartMonth" class="chart"></div>
+      </figure>
+
+      <figure class="card chart-card">
+        <figcaption>
+          <span class="chart-title">Top companies</span>
+          <span class="chart-note">most applications submitted</span>
+        </figcaption>
+        <div id="chartCompany" class="chart"></div>
+      </figure>
+
+      <figure class="card chart-card">
+        <figcaption>
+          <span class="chart-title">Job type mix</span>
+          <span class="chart-note">remote · hybrid · on site</span>
+        </figcaption>
+        <div id="chartType" class="chart"></div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ══════════════ SETTINGS ══════════════ -->
+  <section id="view-settings" class="view" hidden>
+    <div class="view-head">
+      <h2>Settings</h2>
+      <p class="sub">Connect your Google Sheet, then everything syncs both ways.</p>
+    </div>
+
+    <div class="card form">
+      <div class="field field-wide">
+        <label for="f_endpoint">Google Apps Script Web App URL</label>
+        <input id="f_endpoint" type="url" placeholder="https://script.google.com/macros/s/AKfy…/exec">
+        <span class="hint" id="endpointSource"></span>
+      </div>
+      <div class="form-actions">
+        <button id="saveEndpoint" class="btn btn-primary">Save &amp; connect</button>
+        <button id="testEndpoint" class="btn btn-ghost">Test connection</button>
+        <button id="resetEndpoint" class="btn btn-ghost" hidden>Reset to config.js</button>
+        <button id="pushAll" class="btn btn-ghost">Push local rows to Sheets</button>
+        <span id="settingsMsg" class="form-msg" role="status"></span>
+      </div>
+      <div id="diagnostics" class="diag-wrap" hidden></div>
+      <hr class="rule">
+      <div class="form-actions">
+        <button id="wipeLocal" class="btn btn-danger-ghost">Clear local cache</button>
+        <span class="hint">Removes the browser copy only. Your Google Sheet is untouched.</span>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="toast" class="toast" hidden></div>
+
+<!-- config.js is optional — the app runs fine without it. -->
+<script src="config.js"></script>
+<script src="ai.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

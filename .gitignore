@@ -1,0 +1,6 @@
+# Secrets — never commit these.
+.env
+
+# config.js holds your Apps Script /exec URL, which is itself a credential.
+config.js
+node_modules/
