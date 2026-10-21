@@ -1,6 +1,10 @@
 # Secrets — never commit these.
 .env
+.dev.vars
 
 # config.js holds your Apps Script /exec URL, which is itself a credential.
+# This repo is public; enter the URL in the app's Settings page instead.
 config.js
+
 node_modules/
+.wrangler/

@@ -131,7 +131,7 @@ SYSTEM = """You extract structured data from job postings.
 Rules:
 - Extract only what the posting actually states. Use null when it is absent or unclear. Never guess, never infer from the company's reputation, never fill a field with a plausible default.
 - "company" is the hiring employer, not a staffing agency posting on its behalf, and not the job board.
-- "title" is the role title alone, stripped of location, seniority codes, req IDs, and employment type — "Senior Data Engineer, Remote (R12345)" becomes "Senior Data Engineer".
+- "title" is the role title alone, stripped of location, req IDs, and employment type — "Senior Data Engineer, Remote (R12345)" becomes "Senior Data Engineer". Keep seniority words that belong to the title (Junior, Senior, Staff, Principal, Lead, I/II/III); they distinguish genuinely different roles.
 - "location" is the primary city and region, e.g. "Boston, MA". For a fully remote role with no city, use "Remote". For several locations, take the first.
 - "jobType" needs evidence. "Hybrid" requires an explicit mention of splitting time or required days on site. If the posting only names a city with no arrangement stated, return null rather than assuming.
 - "experience" is the stated requirement, kept short and close to the source: "3+ years", "5-7 years", "Entry level".
@@ -169,9 +169,10 @@ def user_prompt(text: str, known: dict) -> str:
     titles = (known or {}).get("titles") or []
     locations = (known or {}).get("locations") or []
     if titles:
-        parts.append("Job titles already in the user's list — reuse the exact "
-                     "string if the posting means the same role, so the list "
-                     "stays clean:\n" + ", ".join(titles[:60]))
+        parts.append("Job titles already in the user's list. Reuse one verbatim "
+                     "ONLY if it matches the posting's role AND its seniority "
+                     "exactly; otherwise use the posting's own title. Never drop "
+                     "a seniority word to force a match:\n" + ", ".join(titles[:60]))
     if locations:
         parts.append("Locations already in the list, same instruction:\n"
                      + ", ".join(locations[:60]))

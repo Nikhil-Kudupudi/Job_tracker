@@ -200,6 +200,60 @@ readable by anyone who opens devtools. And keeping the prompt, the schema and th
 provider logic in one file means switching models touches `.env` and nothing else —
 the browser only ever posts text and receives fields.
 
+## Deploying to Cloudflare Pages
+
+Cloudflare Pages serves the app **and** runs the parse endpoint, so the deployed
+site has everything the local one does. The API key lives in Cloudflare, never in
+the repo.
+
+1. **Cloudflare dashboard → Workers & Pages → Create → Pages → Connect to Git**,
+   and pick this repository.
+2. Build settings: **no build command**, output directory `/` (the repo root).
+   Pages picks up `functions/` automatically.
+3. **Settings → Variables and secrets**, add:
+
+   | Name | Value |
+   |---|---|
+   | `AI_API_KEY` | your key — mark it **Secret** |
+   | `AI_UPSTREAM_URL` | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` |
+   | `AI_MODEL` | `gemini-3.5-flash-lite` |
+
+4. Deploy. Then open the site, go to **Settings**, and paste your Apps Script
+   `/exec` URL so it syncs with your sheet. That is stored in the browser, not in
+   the repo — do it once per device.
+
+Every push to `main` redeploys.
+
+### Why the URL is not in the repo
+
+This repository is **public**. The Apps Script `/exec` URL is an unauthenticated
+endpoint with full read/write on your sheet, so committing it would hand your data
+to anyone who found the repo. `config.js` is in `.gitignore` for that reason, and
+the Settings page exists so you never need to commit it. Same for `.env`.
+
+### Running locally
+
+Two options, same routes either way:
+
+```bash
+python server.py                      # stdlib only, reads .env
+npx wrangler pages dev .              # runs the real Pages Functions
+```
+
+`server.py` is the quick one. `wrangler pages dev` exercises the exact code that
+Cloudflare will run, so use it before a deploy you care about.
+
+> The parse logic exists twice on purpose — `server.py` for local, and
+> `functions/api/ai/_lib.js` for Cloudflare. They serve identical routes and share
+> the same prompt, schema and normalisation. **Change one, change the other.**
+
+### GitHub Pages
+
+It would serve the app, but Pages is static-only — there is no server to hold the
+key or run `/api/ai/parse`, so job-description parsing would be dead. Everything
+else (Sheets sync, dashboard, the 30-day rule) is client-side and would work. Use
+Cloudflare if you want parsing on the deployed site.
+
 ## Theme
 
 The sun/moon button in the header switches light and dark. Your choice is
