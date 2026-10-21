@@ -412,6 +412,7 @@ function go(view) {
   openSidebar(false);
   if (view === 'dashboard') renderDashboard();
   if (view === 'tracker') renderTable();
+  if (view === 'settings') renderAiStatus();
   window.scrollTo({ top: 0 });
 }
 
@@ -1247,6 +1248,33 @@ function vbar(sel, rows, { unit = 'item' } = {}) {
   wireHover(host, marks, rows.filter((r) => r.value), (r) =>
     `<strong>${r.value}</strong> ${esc(unit)}${r.value === 1 ? '' : 's'} ·
      <span class="tip-k">${esc(r.full || r.label)}</span>`);
+}
+
+/** Read-only panel: the AI key is server-side, so say where it is set. */
+function renderAiStatus() {
+  const el = $('#aiStatus');
+  if (!el) return;
+
+  const where = location.hostname.endsWith('.pages.dev') || location.protocol === 'https:'
+    ? 'Cloudflare dashboard → your project → <strong>Settings → Variables and ' +
+      'secrets</strong>, then redeploy'
+    : 'the <code>.env</code> file next to <code>server.py</code>, then restart it';
+
+  JT_AI.status({ refresh: true }).then((s) => {
+    if (s.ready) {
+      el.innerHTML =
+        `<span class="dg-ok">✓ Ready</span> — using <code>${esc(s.model)}</code> ` +
+        `via <code>${esc(s.provider)}</code>.` +
+        `<span class="hint"> The API key is held by the server and never sent to ` +
+        `this page. Change it in ${where}.</span>`;
+    } else {
+      el.innerHTML =
+        `<span class="dg-bad">✕ Not set up</span> — ${esc(s.reason)}` +
+        `<span class="hint"> Configure it in ${where}. There is deliberately no ` +
+        `field for the key here: this page is public, so anything in it is readable ` +
+        `by anyone who opens devtools.</span>`;
+    }
+  });
 }
 
 /** Tell the user which of the two sources the live URL came from. */

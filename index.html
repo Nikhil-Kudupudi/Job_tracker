@@ -286,6 +286,8 @@
         <label for="f_endpoint">Google Apps Script Web App URL</label>
         <input id="f_endpoint" type="url" placeholder="https://script.google.com/macros/s/AKfy…/exec">
         <span class="hint" id="endpointSource"></span>
+        <span class="hint">This is the Google Apps Script URL for your spreadsheet —
+          it ends in <code>/exec</code>. Not a model API endpoint.</span>
       </div>
       <div class="form-actions">
         <button id="saveEndpoint" class="btn btn-primary">Save &amp; connect</button>
@@ -295,6 +297,12 @@
         <span id="settingsMsg" class="form-msg" role="status"></span>
       </div>
       <div id="diagnostics" class="diag-wrap" hidden></div>
+      <hr class="rule">
+      <div class="field field-wide">
+        <label>Job-description parsing</label>
+        <div id="aiStatus" class="ai-status">Checking…</div>
+      </div>
+
       <hr class="rule">
       <div class="form-actions">
         <button id="wipeLocal" class="btn btn-danger-ghost">Clear local cache</button>

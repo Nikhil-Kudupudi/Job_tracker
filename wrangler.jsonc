@@ -1,0 +1,30 @@
+{
+  // Cloudflare Pages configuration.
+  //
+  // "name" must match the Pages project you connected to this repo —
+  // change it if yours is named differently.
+  "name": "job-tracker",
+
+  // The app is plain static files at the repo root; Pages picks up
+  // functions/ automatically. There is no build step.
+  "pages_build_output_dir": ".",
+
+  "compatibility_date": "2026-10-21",
+
+  // ──────────────────────────────────────────────────────────────
+  // Plain (non-secret) variables only.
+  //
+  // DO NOT put AI_API_KEY here. This repo is public, so anything in
+  // this file is public. Keep the key as a Secret in the dashboard:
+  //   Settings → Variables and secrets → Add → type: Secret
+  // or from the CLI:
+  //   npx wrangler pages secret put AI_API_KEY
+  //
+  // Values below are safe to publish: one is a documented endpoint,
+  // the other a model name.
+  // ──────────────────────────────────────────────────────────────
+  "vars": {
+    "AI_UPSTREAM_URL": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    "AI_MODEL": "gemini-3.5-flash-lite"
+  }
+}
